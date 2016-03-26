@@ -46,8 +46,8 @@ class Note:
 
     def __eq__(self, other):
         if self.__class__ == other.__class__ \
-           and self.vars == other.vars \
-           and self.subject == other.subject:
+           and self.subject == other.subject \
+           and self.show_summary('en') == other.show_summary('en'):
             return True
         else:
             return False
@@ -73,11 +73,11 @@ class Note:
 
 
 response = {
-    'this': 'This response',
-    'conneg': 'The uncompressed response',
-    'LM validation': 'The 304 response',
-    'ETag validation': 'The 304 response',
-    'range': 'The partial response',
+    'this': u'This response',
+    'conneg': u'The uncompressed response',
+    'LM validation': u'The 304 response',
+    'ETag validation': u'The 304 response',
+    'range': u'The partial response',
 }
 
 class URI_TOO_LONG(Note):
@@ -776,12 +776,12 @@ compressed response, the resource did not provide one."""
 class CONNEG_NO_VARY(Note):
     category = c.CONNEG
     level = l.BAD
-    summary = u"%(response)s is negotiated, but doesn't have an appropriate Vary header."
+    summary = u"The resource negotiates responses, but doesn't send an appropriate Vary header."
     text = u"""\
 All content negotiated responses need to have a `Vary` header that reflects the header(s) used to
 select the response.
 
-%(response)s was negotiated for `gzip` content encoding, so the `Vary` header needs to contain
+This resource supports the `gzip` content encoding, so all responses' `Vary` header needs to contain
 `Accept-Encoding`, the request header used."""
 
 class CONNEG_GZIP_WITHOUT_ASKING(Note):

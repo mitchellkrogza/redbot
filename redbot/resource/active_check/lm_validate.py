@@ -16,8 +16,7 @@ class LmValidate(SubRequest):
     _months = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 
                      'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    def modify_req_hdrs(self):
-        req_hdrs = list(self.base.request.headers)
+    def modify_req_hdrs(self, req_hdrs):
         if self.base.response.parsed_headers.has_key('last-modified'):
             try:
                 l_m = datetime.utcfromtimestamp(
@@ -43,7 +42,7 @@ class LmValidate(SubRequest):
         if self.base.response.parsed_headers.has_key('last-modified'):
             return True
         else:
-            self.base.ims_support = False
+            self.base.test_state.ims_support = False
             return False
 
     def done(self):
@@ -54,7 +53,7 @@ class LmValidate(SubRequest):
             return
             
         if self.response.status_code == '304':
-            self.base.ims_support = True
+            self.base.test_state.ims_support = True
             self.add_note('header-last-modified', rs.IMS_304)
             self.check_missing_hdrs([
                     'cache-control', 'content-location', 'etag', 
@@ -65,7 +64,7 @@ class LmValidate(SubRequest):
           == self.base.response.status_code:
             if self.response.payload_md5 \
               == self.base.response.payload_md5:
-                self.base.ims_support = False
+                self.base.test_state.ims_support = False
                 self.add_note('header-last-modified', rs.IMS_FULL)
             else:
                 self.add_note('header-last-modified', rs.IMS_UNKNOWN)

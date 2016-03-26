@@ -26,10 +26,10 @@ def join(subject, values, red):
     warned = False
     for (attr, attr_value) in values:
         if directives.has_key(attr) and not warned:
-            red.add_note(subject, rs.UA_COMPATIBLE_REPEAT)
+            red.exchange_state.add_note(subject, rs.UA_COMPATIBLE_REPEAT)
             warned = True
         directives[attr] = attr_value
-    red.add_note(subject, rs.UA_COMPATIBLE)
+    red.exchange_state.add_note(subject, rs.UA_COMPATIBLE)
     return directives
     
 class BasicUACTest(rh.HeaderTest):

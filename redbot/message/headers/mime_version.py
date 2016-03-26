@@ -13,7 +13,7 @@ protocol."""
 
 
 def parse(subject, value, red):
-    red.add_note(subject, rs.MIME_VERSION)
+    red.exchange_state.add_note(subject, rs.MIME_VERSION)
     return value
     
 def join(subject, values, red):

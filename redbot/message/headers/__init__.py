@@ -71,7 +71,7 @@ def SingleFieldValue(func):
         if values == []: # weird, yes
             values = [None]
         if len(values) > 1:
-            msg.add_note(subject, rs.SINGLE_HEADER_REPEAT)
+            msg.exchange_state.add_note(subject, rs.SINGLE_HEADER_REPEAT)
         return func(subject, values, msg)
     new.__name__ = func.__name__
     return new
@@ -84,7 +84,7 @@ def RequestHeader(func):
     func.needs_request = True
     def new(subject, value, msg): # pylint: disable=C0111
         if msg.is_request != True:
-            msg.add_note(subject, rs.RESPONSE_HDR_IN_REQUEST)
+            msg.exchange_state.add_note(subject, rs.RESPONSE_HDR_IN_REQUEST)
             def bad_hdr(subject, value, msg): # pylint: disable=W0613
                 "Don't process headers that aren't used correctly."
                 return None
@@ -101,7 +101,7 @@ def ResponseHeader(func):
     func.needs_response = True
     def new(subject, value, msg): # pylint: disable=C0111
         if msg.is_request != False:
-            msg.add_note(subject, rs.REQUEST_HDR_IN_RESPONSE)
+            msg.exchange_state.add_note(subject, rs.REQUEST_HDR_IN_RESPONSE)
             def bad_hdr(subject, value, msg): # pylint: disable=W0613
                 "Don't process headers that aren't used correctly."
                 return None
@@ -119,7 +119,7 @@ def CheckFieldSyntax(exp, ref):
         assert func.__name__ == 'parse', func.__name__
         def new(subject, value, msg): # pylint: disable=C0111
             if not re.match(r"^\s*(?:%s)\s*$" % exp, value, re.VERBOSE):
-                msg.add_note(subject, rs.BAD_SYNTAX, ref_uri=ref)
+                msg.exchange_state.add_note(subject, rs.BAD_SYNTAX, ref_uri=ref)
                 def bad_syntax(subject, value, msg): # pylint: disable=W0613
                     "Don't process headers with bad syntax."
                     return None
@@ -142,6 +142,7 @@ def process_headers(msg):
     """
 
     hdr_dict = {}
+    add_note = msg.exchange_state.add_note
     header_block_size = len(msg.version)
     if msg.is_request:
         header_block_size += len(msg.method) + len(msg.uri) + 2
@@ -155,8 +156,7 @@ def process_headers(msg):
         subject = "offset-%s" % offset
         hdr_size = len(name) + len(value)
         if hdr_size > MAX_HDR_SIZE:
-            msg.add_note(subject, rs.HEADER_TOO_LARGE,
-               header_name=name, header_size=f_num(hdr_size))
+            add_note(subject, rs.HEADER_TOO_LARGE, header_name=name, header_size=f_num(hdr_size))
         header_block_size += hdr_size
         
         # decode the header to make it unicode clean
@@ -164,16 +164,14 @@ def process_headers(msg):
             name = name.decode('ascii', 'strict')
         except UnicodeError:
             name = name.decode('ascii', 'ignore')
-            msg.add_note(subject, rs.HEADER_NAME_ENCODING,
-                header_name=name)
+            add_note(subject, rs.HEADER_NAME_ENCODING, header_name=name)
         try:
             value = value.decode('ascii', 'strict')
         except UnicodeError:
             value = value.decode('iso-8859-1', 'replace')
-            msg.add_note(subject, rs.HEADER_VALUE_ENCODING,
-                header_name=name)
+            add_note(subject, rs.HEADER_VALUE_ENCODING, header_name=name)
         clean_hdrs.append((name, value))
-        msg.set_context(field_name=name)
+        msg.exchange_state.set_context(field_name=name)
         
         # check field name syntax
         if not re.match("^\s*%s\s*$" % syntax.TOKEN, name, re.VERBOSE):
@@ -201,7 +199,7 @@ def process_headers(msg):
 
     # join parsed header values
     for norm_name, (orig_name, values) in hdr_dict.items():
-        msg.set_context(field_name=orig_name)
+        msg.exchange_state.set_context(field_name=orig_name)
         hdr_join = load_header_func(norm_name, 'join')
         if hdr_join:
             subject = "header-%s" % norm_name
@@ -213,7 +211,7 @@ def process_headers(msg):
 
     # check the total header block size
     if header_block_size > MAX_TTL_HDR:
-        msg.add_note('header', rs.HEADER_BLOCK_TOO_LARGE,
+        add_note('header', rs.HEADER_BLOCK_TOO_LARGE,
             header_block_size=f_num(header_block_size))
 
 

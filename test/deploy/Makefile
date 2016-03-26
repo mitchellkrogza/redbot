@@ -4,21 +4,21 @@ source = ../../
 all: redbot
 
 .PHONY: server
-server: clean all
-	python webui.py 8080 static/
+server: redbot
+	python standalone_redbot.py 8080 static/
 
 redbot-share:
 	cd $(source)/share; make
 
 redbot: clean-redbot
-	cp -p $(source)/bin/webui.py .
-	chmod a+x webui.py
+	cp -p $(source)/bin/standalone_redbot.py .
+	chmod a+x standalone_redbot.py
 	cp $(source)/bin/redbot redbot.py
 	chmod a+x redbot.py
 	mkdir -p static
 	cp -Rp $(source)/share/* static/
 	cp -Rp $(source)/redbot .
-	sed -i=.old '/DEBUG_CONTROL/s/False/True/g' webui.py
+	sed -i=.old '/DEBUG_CONTROL/s/False/True/g' standalone_redbot.py
 
 share: clean-share
 	cd $(source)/share; make

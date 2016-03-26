@@ -15,7 +15,7 @@ partial body should be applied."""
 def parse(subject, value, red):
     # #53: check syntax, values?
     if red.status_code not in ["206", "416"]:
-        red.add_note(subject, rs.CONTENT_RANGE_MEANINGLESS)
+        red.exchange_state.add_note(subject, rs.CONTENT_RANGE_MEANINGLESS)
     return value
 
 @rh.SingleFieldValue    

@@ -18,29 +18,24 @@ class SubRequest(RedFetcher):
     """
     def __init__(self, base_resource, name):
         self.base = base_resource
-        req_hdrs = self.modify_req_hdrs()
-        RedFetcher.__init__(self, 
-                            self.base.request.uri, 
-                            self.base.request.method, 
-                            req_hdrs,
-                            self.base.request.payload, 
-                            self.base.status_cb, 
-                            [], 
-                            name
+        RedFetcher.__init__(
+            self, 
+            self.base.test_state,
+            name,
+            self.base.request.uri, 
+            self.base.request.method, 
+            self.modify_req_hdrs(list(self.base.request.headers)),
+            self.base.request.payload, 
+            self.base.status_cb, 
+            []
         )
-        if self.preflight():
-            self.base.subreqs[name] = self
+        self.add_note = self.base.exchange_state.add_note
     
-    def modify_req_hdrs(self):
+    def modify_req_hdrs(self, req_hdrs):
         """
-        Usually overidden; modifies the request's headers.
-        
-        Make sure it returns a copy of the orignals, not them.
+        Usually overridden; modifies the request's headers.
         """
-        return list(self.base.orig_req_hdrs)
-
-    def add_note(self, subject, note, subreq=None, **kw):
-        self.base.add_note(subject, note, self.name, **kw)
+        return req_hdrs
         
     def check_missing_hdrs(self, hdrs, note, subreq_type):
         """
@@ -57,3 +52,7 @@ class SubRequest(RedFetcher):
                 missing_hdrs=", ".join(missing_hdrs),
                 subreq_type=subreq_type
             )
+
+    def preflight(self):
+        "Check to see if we need to make this request, by examining base_resource."
+        raise NotImplementedError

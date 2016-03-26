@@ -13,5 +13,5 @@ def parse(subject, value, red):
     return value
 
 def join(subject, values, red):
-    red.add_note(subject, rs.SMART_TAG_NO_WORK)
+    red.exchange_state.add_note(subject, rs.SMART_TAG_NO_WORK)
     return values

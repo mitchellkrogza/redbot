@@ -44,7 +44,7 @@ class HarFormatter(Formatter):
         }
         self.last_id = 0
 
-    def start_output(self):
+    def start_output(self, test_uri, req_hdrs):
         pass
         
     def status(self, msg):
@@ -55,56 +55,58 @@ class HarFormatter(Formatter):
 
     def finish_output(self):
         "Fill in the template with RED's results."
-        if self.state.response.complete:
-            page_id = self.add_page(self.state)
-            self.add_entry(self.state, page_id)
-            for linked_state in [d[0] for d in self.state.linked]:
+        exchange_state = self.test_state.get_exchange(None)
+        if exchange_state.response.complete:
+            page_id = self.add_page(exchange_state)
+            self.add_entry(exchange_state, page_id)
+            for linked_state in [d[0] for d in self.test_state.linked]:
+                linked_exchange = linked_state.get_exchange(None)
                 # filter out incomplete responses
-                if linked_state.response.complete:
-                    self.add_entry(linked_state, page_id)
+                if linked_exchange.response.complete:
+                    self.add_entry(linked_exchange, page_id)
         self.output(json.dumps(self.har, indent=4))
         self.done()
         
-    def add_entry(self, state, page_ref=None):
+    def add_entry(self, exchange_state, page_ref=None):
         entry = {
-            "startedDateTime": isoformat(state.request.start_time),
-            "time": int((state.response.complete_time - \
-                         state.request.start_time) * 1000),
-            "_red_messages": self.format_notes(state)
+            "startedDateTime": isoformat(exchange_state.request.start_time),
+            "time": int((exchange_state.response.complete_time - \
+                         exchange_state.request.start_time) * 1000),
+            "_red_messages": self.format_notes(exchange_state)
         }
         if page_ref:
             entry['pageref'] = "page%s" % page_ref
         
         request = {
-            'method': state.request.method,
-            'url': state.request.uri,
+            'method': exchange_state.request.method,
+            'url': exchange_state.request.uri,
             'httpVersion': "HTTP/1.1",
             'cookies': [],
-            'headers': self.format_headers(state.request.headers),
+            'headers': self.format_headers(exchange_state.request.headers),
             'queryString': [],
             'headersSize': -1,
             'bodySize': -1,
         }
         
         response = {
-            'status': state.response.status_code,
-            'statusText': state.response.status_phrase,
-            'httpVersion': "HTTP/%s" % state.response.version, 
+            'status': exchange_state.response.status_code,
+            'statusText': exchange_state.response.status_phrase,
+            'httpVersion': "HTTP/%s" % exchange_state.response.version, 
             'cookies': [],
-            'headers': self.format_headers(state.response.headers),
+            'headers': self.format_headers(exchange_state.response.headers),
             'content': {
-                'size': state.response.decoded_len,
-                'compression': state.response.decoded_len - \
-                               state.response.payload_len,
+                'size': exchange_state.response.decoded_len,
+                'compression': exchange_state.response.decoded_len - \
+                               exchange_state.response.payload_len,
                 'mimeType': (
-                    get_header(state.response.headers, 'content-type') \
+                    get_header(exchange_state.response.headers, 'content-type') \
                     or [""])[0],
             },
             'redirectURL': (
-                    get_header(state.response.headers, 'location') \
+                    get_header(exchange_state.response.headers, 'location') \
                     or [""])[0],
-            'headersSize': state.response.header_length,
-            'bodySize': state.response.payload_len,
+            'headersSize': exchange_state.response.header_length,
+            'bodySize': exchange_state.response.payload_len,
         }
         
         cache = {}
@@ -113,10 +115,10 @@ class HarFormatter(Formatter):
             'connect': -1,
             'blocked': 0,
             'send': 0, 
-            'wait': int((state.response.start_time - \
-                         state.request.start_time) * 1000),
-            'receive': int((state.response.complete_time - \
-                            state.response.start_time) * 1000),
+            'wait': int((exchange_state.response.start_time - \
+                         exchange_state.request.start_time) * 1000),
+            'receive': int((exchange_state.response.complete_time - \
+                            exchange_state.response.start_time) * 1000),
         }
 
         entry.update({
@@ -128,10 +130,10 @@ class HarFormatter(Formatter):
         self.har['log']['entries'].append(entry)
 
         
-    def add_page(self, state):
+    def add_page(self, exchange_state):
         page_id = self.last_id + 1
         page = {
-            "startedDateTime": isoformat(state.request.start_time),
+            "startedDateTime": isoformat(exchange_state.request.start_time),
             "id": "page%s" % page_id,
             "title": "",
             "pageTimings": {

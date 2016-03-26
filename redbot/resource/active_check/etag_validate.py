@@ -11,8 +11,7 @@ import redbot.speak as rs
 class ETagValidate(SubRequest):
     "If an ETag is present, see if it will validate."
 
-    def modify_req_hdrs(self):
-        req_hdrs = list(self.base.request.headers)
+    def modify_req_hdrs(self, req_hdrs):
         if self.base.response.parsed_headers.has_key('etag'):
             weak, etag = self.base.response.parsed_headers['etag']
             if weak:
@@ -30,7 +29,7 @@ class ETagValidate(SubRequest):
         if self.base.response.parsed_headers.has_key('etag'):
             return True
         else:
-            self.base.inm_support = False
+            self.base.test_state.inm_support = False
             return False
 
     def done(self):
@@ -41,7 +40,7 @@ class ETagValidate(SubRequest):
             return
             
         if self.response.status_code == '304':
-            self.base.inm_support = True
+            self.base.test_state.inm_support = True
             self.add_note('header-etag', rs.INM_304)
             self.check_missing_hdrs([
                     'cache-control', 'content-location', 'etag', 
@@ -52,7 +51,7 @@ class ETagValidate(SubRequest):
           == self.base.response.status_code:
             if self.response.payload_md5 \
               == self.base.response.payload_md5:
-                self.base.inm_support = False
+                self.base.test_state.inm_support = False
                 self.add_note('header-etag', rs.INM_FULL)
             else: # bodies are different
                 if self.base.response.parsed_headers['etag'] == \

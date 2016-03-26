@@ -20,7 +20,6 @@ import thor.http.error as httperr
 from redbot import __version__
 from redbot.cache_file import CacheFile
 import redbot.speak as rs
-from redbot.state import RedState
 from redbot.message import HttpRequest, HttpResponse
 from redbot.message.status import StatusChecker
 from redbot.message.cache import checkCaching
@@ -34,7 +33,7 @@ class RedHttpClient(thor.http.HttpClient):
     read_timeout = 15
 
 
-class RedFetcher(RedState):
+class RedFetcher(object):
     """
     Abstract class for a fetcher.
 
@@ -55,19 +54,20 @@ class RedFetcher(RedState):
     robot_cache_dir = None
     robot_lookups = {}
 
-    def __init__(self, iri, method="GET", req_hdrs=None, req_body=None,
-                 status_cb=None, body_procs=None, name=None):
-        RedState.__init__(self, name)
-        self.request = HttpRequest(self.notes, self.name)
+    def __init__(self, test_state, name, iri, method="GET", req_hdrs=None, req_body=None,
+                 status_cb=None, body_procs=None):
+        self.test_state = test_state
+        self.name = name
+        self.request = HttpRequest()
+        self.response = HttpResponse()
+        self.exchange_state = self.test_state.add_exchange(name, self.request, self.response)
         self.request.method = method
         self.request.set_iri(iri)
         self.request.headers = req_hdrs or []
         self.request.payload = req_body
-        self.response = HttpResponse(self.notes, self.name)
         self.response.is_head_response = (method == "HEAD")
         self.response.base_uri = self.request.uri
         self.response.set_decoded_procs(body_procs or [])
-        self.subreqs = {} # subordinate requests' RedState objects
         self.exchange = None
         self.status_cb = status_cb
         self.done_cb = None # really should be "all tasks done"
@@ -75,15 +75,15 @@ class RedFetcher(RedState):
         self.follow_robots_txt = True # Should we pay attention to robots file?
         self._st = [] # FIXME: this is temporary, for debugging thor
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state['exchange']
-        del state['status_cb']
-        del state['done_cb']
-        return state
+    def preflight(self):
+        """
+        Callback to check to see if we should bother running. Return True
+        if so; False if not.
+        """
+        return True
 
     def add_task(self, task, *args):
-        "Remeber that we've started a task."
+        "Remember that we've started a task."
         self.outstanding_tasks += 1
         self._st.append('add_task(%s)' % str(task))
         task(*args, done_cb=self.finish_task)
@@ -103,13 +103,6 @@ class RedFetcher(RedState):
     def done(self):
         "Callback for when the response is complete and analysed."
         raise NotImplementedError
-
-    def preflight(self):
-        """
-        Callback to check to see if we should bother running. Return True
-        if so; False if not.
-        """
-        return True
 
     def fetch_robots_txt(self, url, cb, network=True):
         """
@@ -189,7 +182,7 @@ class RedFetcher(RedState):
         self.outstanding_tasks += 1
         self._st.append('run(%s)' % str(done_cb))
         self.done_cb = done_cb
-        if not self.preflight() or self.request.uri == None:
+        if (not self.preflight()) or self.request.uri == None:
             # generally a good sign that we're not going much further.
             self.finish_task()
             return
@@ -236,7 +229,7 @@ class RedFetcher(RedState):
         self.request.start_time = thor.time()
         if self.request.payload != None:
             self.exchange.request_body(self.request.payload)
-            self.transfer_out += len(self.request.payload)
+            self.test_state.transfer_out += len(self.request.payload)
         self.exchange.request_done([])
 
     def _response_start(self, status, phrase, res_headers):
@@ -247,12 +240,12 @@ class RedFetcher(RedState):
         self.response.status_code = status.decode('iso-8859-1', 'replace')
         self.response.status_phrase = phrase.decode('iso-8859-1', 'replace')
         self.response.set_headers(res_headers)
-        StatusChecker(self.response, self.request)
+        StatusChecker(self.exchange_state)
         checkCaching(self.response, self.request)
 
     def _response_body(self, chunk):
         "Process a chunk of the response body."
-        self.transfer_in += len(chunk)
+        self.test_state.transfer_in += len(chunk)
         self.response.feed_body(chunk)
 
     def _response_done(self, trailers):
@@ -275,12 +268,12 @@ class RedFetcher(RedState):
         self.response.complete_time = thor.time()
         self.response.http_error = error
         if isinstance(error, httperr.BodyForbiddenError):
-            self.add_note('header-none', rs.BODY_NOT_ALLOWED)
+            self.exchange_state.add_note('header-none', rs.BODY_NOT_ALLOWED)
 #        elif isinstance(error, httperr.ExtraDataErr):
 #            res.payload_len += len(err.get('detail', ''))
         elif isinstance(error, httperr.ChunkError):
             err_msg = error.detail[:20] or ""
-            self.add_note('header-transfer-encoding', rs.BAD_CHUNK,
+            self.exchange_state.add_note('header-transfer-encoding', rs.BAD_CHUNK,
                 chunk_sample=err_msg.encode('string_escape')
             )
         self.done()

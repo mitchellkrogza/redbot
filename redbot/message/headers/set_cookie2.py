@@ -12,7 +12,7 @@ The `Set-Cookie2` header has been deprecated; use `Set-Cookie` instead."""
 
 @rh.ResponseHeader
 def parse(subject, value, red):
-    red.add_note(subject, 
+    red.exchange_state.add_note(subject, 
                     rs.HEADER_DEPRECATED, 
                     header_name="Set-Cookie2",
                     ref=rh.rfc6265 % "section-9.4"

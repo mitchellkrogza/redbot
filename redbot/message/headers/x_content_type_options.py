@@ -14,7 +14,7 @@ def parse(subject, value, red):
     
 def join(subject, values, red):
     if 'nosniff' in values:
-        red.add_note(subject, rs.CONTENT_TYPE_OPTIONS)
+        red.exchange_state.add_note(subject, rs.CONTENT_TYPE_OPTIONS)
     else:
-        red.add_note(subject, rs.CONTENT_TYPE_OPTIONS_UNKNOWN)
+        red.exchange_state.add_note(subject, rs.CONTENT_TYPE_OPTIONS_UNKNOWN)
     return values

@@ -22,9 +22,9 @@ def parse(subject, value, msg):
     if msg.status_code not in [
         "201", "300", "301", "302", "303", "305", "307", "308"
     ]:
-        msg.add_note(subject, rs.LOCATION_UNDEFINED)
+        msg.exchange_state.add_note(subject, rs.LOCATION_UNDEFINED)
     if not re.match(r"^\s*%s\s*$" % syntax.URI, value, re.VERBOSE):
-        msg.add_note(subject, rs.LOCATION_NOT_ABSOLUTE,
+        msg.exchange_state.add_note(subject, rs.LOCATION_NOT_ABSOLUTE,
                         full_uri=urljoin(msg.base_uri, value))
     return value
 

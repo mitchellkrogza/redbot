@@ -19,8 +19,8 @@ class RangeRequest(SubRequest):
         self.range_target = None
         SubRequest.__init__(self, red, name)
         
-    def modify_req_hdrs(self):
-        req_hdrs = list(self.base.request.headers)
+    def modify_req_hdrs(self, req_hdrs):
+        # FIXME: small bodies
         if len(self.base.response.payload_sample) != 0:
             sample_num = random.randint(
                 0, 
@@ -45,16 +45,12 @@ class RangeRequest(SubRequest):
         return req_hdrs
         
     def preflight(self):
-        if 'bytes' in \
-          self.base.response.parsed_headers.get('accept-ranges', []):
+        if 'bytes' in self.base.response.parsed_headers.get('accept-ranges', []):
             if len(self.base.response.payload_sample) == 0:
-                return False
-            if self.range_start == self.range_end: 
-                # wow, that's a small body.
                 return False
             return True
         else:
-            self.base.partial_support = False
+            self.base.test_state.partial_support = False
             return False
 
     def done(self):
@@ -73,8 +69,7 @@ class RangeRequest(SubRequest):
                     rs.RANGE_NEG_MISMATCH
                 )
                 return
-            if not [True for h in self.base.orig_req_hdrs 
-                if h[0].lower() == 'if-range']:
+            if not [True for h in self.base.request.headers if h[0].lower() == 'if-range']:
                 self.check_missing_hdrs([
                         'date', 'cache-control', 'content-location', 'etag', 
                         'expires', 'vary'
@@ -83,11 +78,11 @@ class RangeRequest(SubRequest):
             if self.response.parsed_headers.get('etag', 1) == \
               self.base.response.parsed_headers.get('etag', 2):
                 if self.response.payload == self.range_target:
-                    self.base.partial_support = True
+                    self.base.test_state.partial_support = True
                     self.add_note('header-accept-ranges', rs.RANGE_CORRECT)
                 else:
                     # the body samples are just bags of bits
-                    self.base.partial_support = False
+                    self.base.test_state.partial_support = False
                     self.add_note('header-accept-ranges',
                         rs.RANGE_INCORRECT,
                         range="bytes=%s-%s" % (

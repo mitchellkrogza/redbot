@@ -15,7 +15,7 @@ resource."""
 def parse(subject, value, red):
     value = value.lower()
     if value not in ['bytes', 'none']:
-        red.add_note(subject, rs.UNKNOWN_RANGE, range=value)
+        red.exchange_state.add_note(subject, rs.UNKNOWN_RANGE, range=value)
     return value
     
 def join(subject, values, red):

@@ -14,11 +14,11 @@ def parse(subject, value, red):
     
 def join(subject, values, red):
     if 'deny' in values:
-        red.add_note(subject, rs.FRAME_OPTIONS_DENY)
+        red.exchange_state.add_note(subject, rs.FRAME_OPTIONS_DENY)
     elif 'sameorigin' in values:
-        red.add_note(subject, rs.FRAME_OPTIONS_SAMEORIGIN)
+        red.exchange_state.add_note(subject, rs.FRAME_OPTIONS_SAMEORIGIN)
     else:
-        red.add_note(subject, rs.FRAME_OPTIONS_UNKNOWN)
+        red.exchange_state.add_note(subject, rs.FRAME_OPTIONS_UNKNOWN)
     return values
 
 

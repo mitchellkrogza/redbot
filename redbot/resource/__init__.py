@@ -16,6 +16,7 @@ from urlparse import urljoin
 from redbot.resource.fetch import RedFetcher, UA_STRING
 from redbot.formatter import f_num
 from redbot.resource import active_check
+from redbot.state import RedState
 
 
 class HttpResource(RedFetcher):
@@ -31,23 +32,12 @@ class HttpResource(RedFetcher):
     After processing the response-specific attributes of RedFetcher will be
     populated, as well as its notes; see that class for details.
     """
-    def __init__(self, uri, method="GET", req_hdrs=None, req_body=None,
+    def __init__(self, test_state, uri, method="GET", req_hdrs=None, req_body=None,
                 status_cb=None, body_procs=None, descend=False):
-        orig_req_hdrs = req_hdrs or []
-        new_req_hdrs = orig_req_hdrs + [(u'Accept-Encoding', u'gzip')]
-        RedFetcher.__init__(self, uri, method, new_req_hdrs, req_body,
-                            status_cb, body_procs, name=method)
+        RedFetcher.__init__(self, test_state, None, uri, method, req_hdrs, req_body,
+                            status_cb, body_procs)
         self.descend = descend
         self.response.set_link_procs([self.process_link])
-        self.links = {}          # {type: set(link...)}
-        self.link_count = 0
-        self.linked = []    # list of linked HttpResources (if descend=True)
-        self.orig_req_hdrs = orig_req_hdrs
-        self.partial_support = None
-        self.inm_support = None
-        self.ims_support = None
-        self.gzip_support = None
-        self.gzip_savings = 0
 
     def done(self):
         """
@@ -59,27 +49,30 @@ class HttpResource(RedFetcher):
 
     def process_link(self, base, link, tag, title):
         "Handle a link from content"
-        self.link_count += 1
-        if not self.links.has_key(tag):
-            self.links[tag] = set()
-        if self.descend and tag not in ['a'] and link not in self.links[tag]:
+        if not self.test_state.links.has_key(tag):
+            self.test_state.links[tag] = set()
+        if self.descend and tag not in ['a'] and link not in self.test_state.links[tag]:
+            linked_state = RedState()
             linked = HttpResource(
+                linked_state,
                 urljoin(base, link),
-                req_hdrs=self.orig_req_hdrs,
+                req_hdrs=self.request.headers,
                 status_cb=self.status_cb,
             )
-            self.linked.append((linked, tag))
+            self.test_state.linked.append((linked_state, tag))
             self.add_task(linked.run)
-        self.links[tag].add(link)
+        self.test_state.links[tag].add(link)
         if not self.response.base_uri:
             self.response.base_uri = base
 
 
 if __name__ == "__main__":
     import sys
+    from redbot.state import RedState
     def status_p(msg):
         'print the status message'
         print msg
-    RED = HttpResource(sys.argv[1], status_cb=status_p)
+    state = RedState()
+    RED = HttpResource(state, sys.argv[1], status_cb=status_p)
     RED.run()
-    print RED.notes
+    print state.notes

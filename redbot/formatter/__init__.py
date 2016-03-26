@@ -68,30 +68,22 @@ class Formatter(object):
     name = None # name of the format.
     can_multiple = False # formatter can represent multiple responses.
     
-    def __init__(self, ui_uri, uri, req_hdrs, check_type, lang, output, **kw):
+    def __init__(self, ui_uri, test_state, check_type, lang, output, **kw):
         """
         Formatter for the given URI, writing
         to the callable output(uni_str). Output is Unicode; callee
         is responsible for encoding correctly.
         """
         self.ui_uri = ui_uri         # the URI of the HTML UI itself
-        self.uri = uri               # the URI under test
-        self.req_hdrs = req_hdrs     # list of (name, value) request headers
-        self.check_type = check_type # 'Identity', 'If-None-Match', 'If-Modified-Since', 'Range'
+        self.test_state = test_state
+        self.check_type = check_type # None, 'Identity', 'If-None-Match', 'If-Modified-Since', 'Range'
         self.lang = lang
         self.output = output         # output file object
         self.kw = kw                 # extra keyword arguments
-        self.state = None
-
-    def set_state(self, state):
-        """
-        Set the RedState to be formatted.
-        """
-        self.state = state
         
     def done(self):
         """Clean up. Must be called by finish_output."""
-        self.state = None
+        self.test_state = None
         self.output = None
     
     def feed(self, state, sample):
@@ -100,7 +92,7 @@ class Formatter(object):
         """
         raise NotImplementedError
         
-    def start_output(self):
+    def start_output(self, test_uri, req_hdrs):
         """
         Send preliminary output.
         """

@@ -147,8 +147,8 @@ class BadErrorIReallyMeanIt(Exception):
 if __name__ == "__main__":
     import sys
     from redbot.resource.fetch import RedFetcher
+    from redbot.state import RedState
     uri = sys.argv[1]
-    req_hdrs = [(u'Accept-Encoding', u'gzip')]
     class TestFetcher(RedFetcher):
         count = 0
         def done(self):
@@ -162,4 +162,4 @@ if __name__ == "__main__":
             out = "%.3d) [%s] %s" % (TestFetcher.count, tag, link)
             print out.encode('utf-8', 'strict')
     p = HTMLLinkParser(uri, TestFetcher.show_link, TestFetcher.err)
-    TestFetcher(uri, req_hdrs=req_hdrs, body_procs=[p.feed])
+    TestFetcher(RedState(), 'test', uri, req_hdrs=[], body_procs=[p.feed])

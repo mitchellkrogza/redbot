@@ -25,17 +25,17 @@ def parse(subject, value, red):
     disposition = disposition.lower()
     param_dict = rh.parse_params(red, subject, params)
     if disposition not in ['inline', 'attachment']:
-        red.add_note(subject,
+        red.exchange_state.add_note(subject,
             rs.DISPOSITION_UNKNOWN,
             disposition=disposition
         )
     if not param_dict.has_key('filename'):
-        red.add_note(subject, rs.DISPOSITION_OMITS_FILENAME)
+        red.exchange_state.add_note(subject, rs.DISPOSITION_OMITS_FILENAME)
     if "%" in param_dict.get('filename', ''):
-        red.add_note(subject, rs.DISPOSITION_FILENAME_PERCENT)
+        red.exchange_state.add_note(subject, rs.DISPOSITION_FILENAME_PERCENT)
     if "/" in param_dict.get('filename', '') or \
        r"\\" in param_dict.get('filename*', ''):
-        red.add_note(subject, rs.DISPOSITION_FILENAME_PATH_CHAR)
+        red.exchange_state.add_note(subject, rs.DISPOSITION_FILENAME_PATH_CHAR)
     return disposition, param_dict
 
 @rh.SingleFieldValue

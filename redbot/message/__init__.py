@@ -17,6 +17,7 @@ from redbot.message.headers import process_headers
 from redbot.formatter import f_num
 import redbot.speak as rs
 from redbot.message.uri_syntax import URI
+from redbot.state import ExchangeState
 
 import thor.http.error as httperr
 
@@ -27,7 +28,7 @@ class HttpMessage(object):
     """
     Base class for HTTP message state.
     """
-    def __init__(self, notes=None, name=None):
+    def __init__(self):
         self.is_request = None
         self.version = ""
         self.base_uri = ""
@@ -54,17 +55,13 @@ class HttpMessage(object):
         self.transfer_length = 0
         self.trailers = []
         self.http_error = None  # any parse errors encountered; see httperr
-        self._context = {}
         self._md5_processor = hashlib.new('md5')
         self._md5_post_processor = hashlib.new('md5')
         self._gzip_processor = zlib.decompressobj(-zlib.MAX_WBITS)
         self._in_gzip_body = False
         self._gzip_header_buffer = ""
-        self.name = name
-        if notes is None:
-            self.notes = []
-        else:
-            self.notes = notes
+        self.exchange_state = ExchangeState()
+
 
     def __repr__(self):
         status = [self.__class__.__module__ + "." + self.__class__.__name__]
@@ -82,6 +79,10 @@ class HttpMessage(object):
             if state.has_key(key):
                 del state[key]
         return state
+
+    def set_exchange_state(self, exchange_state):
+        "Set the message's exchange state object."
+        self.exchange_state = exchange_state
 
     def set_decoded_procs(self, decoded_procs):
         "Set a list of processors for the decoded body."
@@ -159,18 +160,18 @@ class HttpMessage(object):
             # check payload basics
             if self.parsed_headers.has_key('content-length'):
                 if self.payload_len == self.parsed_headers['content-length']:
-                    self.add_note('header-content-length', rs.CL_CORRECT)
+                    self.exchange_state.add_note('header-content-length', rs.CL_CORRECT)
                 else:
-                    self.add_note('header-content-length', 
+                    self.exchange_state.add_note('header-content-length', 
                                     rs.CL_INCORRECT,
                                     body_length=f_num(self.payload_len)
                     )
             if self.parsed_headers.has_key('content-md5'):
                 c_md5_calc = base64.encodestring(self.payload_md5)[:-1]
                 if self.parsed_headers['content-md5'] == c_md5_calc:
-                    self.add_note('header-content-md5', rs.CMD5_CORRECT)
+                    self.exchange_state.add_note('header-content-md5', rs.CMD5_CORRECT)
                 else:
-                    self.add_note('header-content-md5', 
+                    self.exchange_state.add_note('header-content-md5', 
                                   rs.CMD5_INCORRECT, calc_md5=c_md5_calc)
 
     def _process_content_codings(self, chunk):
@@ -194,7 +195,7 @@ class HttpMessage(object):
                     except IndexError:
                         return '' # not a full header yet
                     except IOError, gzip_error:
-                        self.add_note('header-content-encoding',
+                        self.exchange_state.add_note('header-content-encoding',
                                         rs.BAD_GZIP,
                                         gzip_error=str(gzip_error)
                         )
@@ -203,7 +204,7 @@ class HttpMessage(object):
                 try:
                     chunk = self._gzip_processor.decompress(chunk)
                 except zlib.error, zlib_error:
-                    self.add_note(
+                    self.exchange_state.add_note(
                         'header-content-encoding', 
                         rs.BAD_ZLIB,
                         zlib_error=str(zlib_error),
@@ -267,26 +268,14 @@ class HttpMessage(object):
         if flag & gz_flags['FHCRC']:
             content_l = content_l[2:]   # Read & discard the 16-bit header CRC
         return "".join(content_l)
-
-    def set_context(self, **kw):
-        "Set the note context."
-        self._context = kw
-        
-    def add_note(self, subject, note, subreq=None, **kw):
-        "Set a note."
-        kw.update(self._context)
-        kw['response'] = rs.response.get(
-            self.name, rs.response['this']
-        )
-        self.notes.append(note(subject, subreq, kw))
         
         
 class HttpRequest(HttpMessage):
     """
     A HTTP Request message.
     """
-    def __init__(self, notes=None, name=None):
-        HttpMessage.__init__(self, notes, name)
+    def __init__(self):
+        HttpMessage.__init__(self)
         self.is_request = True
         self.method = None
         self.uri = None
@@ -301,12 +290,12 @@ class HttpRequest(HttpMessage):
             self.http_error = httperr.UrlError(why[0])
             return
         if not re.match("^\s*%s\s*$" % URI, self.uri, re.VERBOSE):
-            self.add_note('uri', rs.URI_BAD_SYNTAX)
+            self.exchange_state.add_note('uri', rs.URI_BAD_SYNTAX)
         if '#' in self.uri:
             # chop off the fragment
             self.uri = self.uri[:self.uri.index('#')]
         if len(self.uri) > MAX_URI:
-            self.add_note('uri',
+            self.exchange_state.add_note('uri',
                 rs.URI_TOO_LONG,
                 uri_len=f_num(len(self.uri))
             )
@@ -342,8 +331,8 @@ class HttpResponse(HttpMessage):
     """
     A HTTP Response message.
     """
-    def __init__(self, notes=None, name=None):
-        HttpMessage.__init__(self, notes, name)
+    def __init__(self):
+        HttpMessage.__init__(self)
         self.is_request = False
         self.is_head_response = False
         self.status_code = None
@@ -358,18 +347,9 @@ class DummyMsg(HttpResponse):
     """
     A dummy HTTP message, for testing.
     """
-    def __init__(self, notes=None, name=None):
-        HttpResponse.__init__(self, notes, name)
+    def __init__(self):
+        HttpResponse.__init__(self)
         self.base_uri = "http://www.example.com/foo/bar/baz.html?bat=bam"
         self.start_time = time.time()
         self.status_phrase = ""
         self.note_classes = []
-
-    def add_note(self, subject, note, **kw):
-        "Record the classes of notes set."
-        self.notes.append(note(subject, None, kw))
-        self.note_classes.append(note.__name__)
-
-    def set_context(self, **kw):
-        "Don't need context for testing."
-        pass

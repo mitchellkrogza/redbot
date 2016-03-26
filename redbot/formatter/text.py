@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-HAR Formatter for REDbot.
+Text Formatter for REDbot.
 """
 
 
@@ -43,7 +43,7 @@ class BaseTextFormatter(Formatter):
         Formatter.__init__(self, *args, **kw)
         self.verbose = False
 
-    def start_output(self):
+    def start_output(self, test_uri, req_hdrs):
         pass
 
     def feed(self, state, chunk):
@@ -54,32 +54,33 @@ class BaseTextFormatter(Formatter):
 
     def finish_output(self):
         "Fill in the template with RED's results."
-        if self.state.response.complete:
-            self.output(self.format_headers(self.state) + nl + nl)
-            self.output(self.format_recommendations(self.state) + nl)
+        exchange_state = self.test_state.get_exchange(None)
+        if exchange_state.response.complete:
+            self.output(self.format_headers(exchange_state) + nl + nl)
+            self.output(self.format_recommendations(exchange_state) + nl)
         else:
-            if self.state.response.http_error == None:
+            if exchange_state.response.http_error == None:
                 pass
-            elif isinstance(self.state.response.http_error, httperr.HttpError):
+            elif isinstance(exchange_state.response.http_error, httperr.HttpError):
                 self.output(self.error_template % \
-                            self.state.response.http_error.desc)
+                            exchange_state.response.http_error.desc)
             else:
                 raise AssertionError, "Unknown incomplete response error."
 
-    def format_headers(self, state):
+    def format_headers(self, exchange_state):
         out = [u"HTTP/%s %s %s" % (
-                state.response.version, 
-                state.response.status_code, 
-                state.response.status_phrase
+                exchange_state.response.version, 
+                exchange_state.response.status_code, 
+                exchange_state.response.status_phrase
         )]
-        return nl.join(out + [u"%s:%s" % h for h in state.response.headers])
+        return nl.join(out + [u"%s:%s" % h for h in exchange_state.response.headers])
 
-    def format_recommendations(self, state):
-        return "".join([self.format_recommendation(state, category) \
+    def format_recommendations(self, exchange_state):
+        return "".join([self.format_recommendation(exchange_state, category) \
             for category in self.note_categories])
 
-    def format_recommendation(self, state, category):
-        notes = [note for note in state.notes if note.category == category]
+    def format_recommendation(self, exchange_state, category):
+        notes = [note for note in exchange_state.notes if note.category == category]
         if not notes:
             return ""
         out = []
