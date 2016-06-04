@@ -9,9 +9,10 @@ from redbot.message import http_syntax as syntax
 description = u"""\
 The `ETag` header provides an opaque identifier for the representation."""
 
-    
+reference = u"%s#header.etag" % rs.rfc7232
     
 @rh.GenericHeaderSyntax
+@rh.ResponseOrPutHeader
 @rh.CheckFieldSyntax(
   r'\*|(?:W/)?%s' % syntax.QUOTED_STRING, rh.rfc2616 % "section-14.19")
 def parse(subject, value, red):
